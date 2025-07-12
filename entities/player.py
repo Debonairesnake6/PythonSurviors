@@ -20,8 +20,17 @@ class Player(BaseSprite):
         self.money = 0
         self._experience = 0
         self.level_scaling = 1.3
-        self.level: int = 1
+        self._level: int = 1
         self.next_level_experience: int = 5
+        self.kills: int = 0
+
+    @property
+    def level(self):
+        return self._level
+
+    @level.setter
+    def level(self, value: int):
+        self._level = value
 
     @property
     def experience(self):
