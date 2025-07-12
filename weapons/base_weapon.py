@@ -10,6 +10,11 @@ from scripts.pygame_utils import (
 from scripts.animation import Animation
 from entities.base_entity import BaseDrop
 from icecream import ic
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from entities.player import Player
 
 
 class BaseEffect:
@@ -132,7 +137,7 @@ class BaseWeapon:
     def update(
         self,
         delta_time: float,
-        player_location: XYFloat,
+        player: 'Player',
         enemies: list[Enemy],
         game_display: Surface,
         drops: list[BaseDrop],
@@ -140,7 +145,7 @@ class BaseWeapon:
         if self.current_cooldown > 0:
             self.current_cooldown = max(self.current_cooldown - delta_time, 0)
         else:
-            self.fire_weapon(player_location, enemies)
+            self.fire_weapon(player.location_center, enemies)
 
         for ammo in self.active_ammo.copy():
             game_display.blit(ammo.surface, ammo.current_location)
@@ -165,6 +170,7 @@ class BaseWeapon:
                     if drop := enemy.die():
                         drops.append(drop)
                     enemies.remove(enemy)
+                    player.kills += 1
 
         for animation in self.damage_text.copy():
             if next_frame := animation.next_frame(delta_time):

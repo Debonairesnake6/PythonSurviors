@@ -5,7 +5,7 @@ from pygame import Surface
 from entities.player import Player
 from entities.base_entity import BaseEntity
 from scripts.readable_classes import XYFloat, XYInt
-from scripts.pygame_utils import create_surface, create_font_surface
+from scripts.pygame_utils import create_surface, create_font_surface, time_to_string
 from scripts.config import DISPLAY_SIZE
 
 
@@ -40,7 +40,7 @@ class BaseUIElement(BaseEntity):
             new_surface.blit(layer.full_surface, layer.location)
         return new_surface
 
-    def update(self):
+    def update(self, *args, **kwargs):
         for layer in self.layers:
             layer.update()
 
@@ -56,7 +56,7 @@ class HotBarUIElement(BaseUIElement):
 
         super().__init__(self.base_surface, location, player)
 
-    def update(self):
+    def update(self, *args, **kwargs,):
         self.layers = [
             self.background(),
             self.title(),
@@ -177,16 +177,98 @@ class Resources(BaseUIElement):
         )
 
 
+class PauseMenu(BaseUIElement):
+    def __init__(self, location: XYFloat):
+        size = XYInt(
+            DISPLAY_SIZE.x,
+            DISPLAY_SIZE.y,
+        )
+        surface = create_surface(size=size,)
+        super().__init__(surface, location)
+
+        self.create_paused_text()
+
+
+    def create_paused_text(self):
+        text_surface = create_font_surface(
+                    text="Paused", size=400, colour=(0, 0, 0)
+                )
+        self.layers = [(
+            BaseUIElement(
+                surface=text_surface,
+                location=XYFloat(
+                    (self.surface.get_width() - text_surface.get_width()) // 2,
+                    (self.surface.get_height() - text_surface.get_height()) // 2,
+                ),
+            )
+        )]
+
+
+class TimeClock(BaseUIElement):
+    def __init__(self, location: XYFloat):
+        size = XYInt(
+            DISPLAY_SIZE.x // 10,
+            DISPLAY_SIZE.y // 20,
+        )
+        surface = create_surface(size=size,)
+        super().__init__(surface, location)
+
+
+    def update(self, *args, total_time: float = 0 , **kwargs):
+        text_surface = create_font_surface(
+                    text=time_to_string(total_time), size=40, colour=(0, 0, 0)
+                )
+        self.layers = [
+            BaseUIElement(
+                surface=text_surface,
+                location=XYFloat(
+                    (self.surface.get_width() - text_surface.get_width()) // 2,
+                    (self.surface.get_height() - text_surface.get_height()) // 2,
+                ),
+            )
+        ]
+
+
+class Kills(BaseUIElement):
+    def __init__(self, location: XYFloat):
+        size = XYInt(
+            DISPLAY_SIZE.x // 10,
+            DISPLAY_SIZE.y // 20,
+        )
+        surface = create_surface(size=size,)
+        super().__init__(surface, location)
+
+
+    def update(self, *args, kills: int = 0, **kwargs):
+        text_surface = create_font_surface(
+                    text=str(kills), size=40, colour=(0, 0, 0)
+                )
+        self.layers = [
+            BaseUIElement(
+                surface=text_surface,
+                location=XYFloat(
+                    (self.surface.get_width() - text_surface.get_width()) // 2,
+                    (self.surface.get_height() - text_surface.get_height()) // 2,
+                ),
+            )
+        ]
+
+
 class Overlay:
     def __init__(
-        self, game_display: Surface, player: Player, layers: list[BaseUIElement] = None
+        self, game_display: Surface, player: Player, paused: bool,
     ):
         self.game_display = game_display
         self.player = player
-        self.layers = layers
-        if self.layers is None:
-            self.layers: list[BaseUIElement] = []
+        self.previously_paused = paused
 
+        self.pause_menu: PauseMenu = PauseMenu(
+            location=XYFloat(
+                0, 0,
+            ),
+        )
+
+        self.layers: list[BaseUIElement] = []
         self.layers.append(
             Resources(
                 location=XYFloat(
@@ -197,7 +279,31 @@ class Overlay:
             )
         )
 
-    def update(self):
+        self.layers.append(
+            TimeClock(
+                location=XYFloat(
+                    (DISPLAY_SIZE.x - DISPLAY_SIZE.x // 10) // 2,
+                    0,
+                ),
+            )
+        )
+
+        self.layers.append(
+            Kills(
+                location=XYFloat(
+                    DISPLAY_SIZE.x - DISPLAY_SIZE.x // 10,
+                    0,
+                ),
+            )
+        )
+
+    def update(self, paused: bool, total_time: float, kills: int):
+        if paused and not self.previously_paused:
+            self.layers.insert(0, self.pause_menu)
+        elif not paused and self.previously_paused:
+            self.layers.remove(self.pause_menu)
+        self.previously_paused = paused
+
         for layer in self.layers:
-            layer.update()
+            layer.update(total_time=total_time, kills=kills)
             self.game_display.blit(layer.full_surface, layer.location)

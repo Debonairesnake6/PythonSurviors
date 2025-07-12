@@ -147,3 +147,8 @@ def configure_icecream():
         outputFunction=log,
         includeContext=True,
     )
+
+def time_to_string(time: float) -> str:
+    seconds = time % 60
+    minutes = math.floor(time / 60) % 60
+    return f"{minutes:02.0f}:{seconds:02.0f}"

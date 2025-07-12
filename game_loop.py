@@ -69,9 +69,8 @@ class Game:
         self.total_time: float = 0
         self.framerate_font = default_font(40)
 
-        self.overlay: Overlay = Overlay(self.game_display, self.player)
-
         self.paused = False
+        self.overlay: Overlay = Overlay(self.game_display, self.player, self.paused)
 
     def load_level(self):
         ...
@@ -222,7 +221,7 @@ class Game:
 
     def create_enemies(self):
         safe_area = 200
-        while len(self.enemies) < 30:
+        while len(self.enemies) < 30 * self.total_time / 10:
             while new_location := XYFloat(
                 random.randint(0, config.DISPLAY_SIZE.x),
                 random.randint(0, config.DISPLAY_SIZE.y),
@@ -255,7 +254,7 @@ class Game:
         for weapon in self.player.weapon_slots:
             weapon.update(
                 self.delta_time if not self.paused else 0,
-                self.player.location_center,
+                self.player,
                 self.enemies,
                 self.game_display,
                 self.drops,
@@ -263,7 +262,7 @@ class Game:
 
         self.game_display.blit(self.player.surface, self.player.location.to_tuple())
 
-        self.overlay.update()
+        self.overlay.update(self.paused, self.total_time, self.player.kills)
 
     def run(self):
         self.player.weapon_slots.append(Pistol())
