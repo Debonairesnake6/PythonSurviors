@@ -135,11 +135,13 @@ def default_font(size: int = 20):
 
 def log(text: str):
     print(text)
-    with open("log.txt", "w") as file:
+    with open("log.txt", "a") as file:
         file.write(f"{text}\n")
 
 
 def configure_icecream():
+    with open("log.txt", "w") as file:
+        file.write(f"")
     ic.configureOutput(
         prefix="Debug| ",
         outputFunction=log,
