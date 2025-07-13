@@ -195,18 +195,16 @@ class PauseMenu(BaseUIElement):
         self.create_paused_text()
 
     def create_paused_text(self):
-        text_surface = create_font_surface(
-                    text="Paused", size=400, colour=(0, 0, 0)
-                )
-        self.layers = [(
+        text_surface = create_font_surface(text="Paused", size=400, colour=(0, 0, 0))
+        self.layers = [
             BaseUIElement(
                 surface=text_surface,
                 location=XYFloat(
                     (self.surface.get_width() - text_surface.get_width()) // 2,
-                    (self.surface.get_height() - text_surface.get_height()) // 2,
+                    0,
                 ),
             )
-        )]
+        ]
 
 
 class TimeClock(BaseUIElement):
@@ -229,7 +227,7 @@ class TimeClock(BaseUIElement):
                 surface=text_surface,
                 location=XYFloat(
                     (self.surface.get_width() - text_surface.get_width()) // 2,
-                    (self.surface.get_height() - text_surface.get_height()) // 2,
+                    0,
                 ),
             )
         ]
@@ -244,16 +242,15 @@ class Kills(BaseUIElement):
         surface = create_surface(size=size)
         super().__init__(surface, location)
 
-
     def update(self, *args, kills: int = 0, **kwargs):
         text_surface = create_font_surface(
-                    text=str(kills), size=40, colour=(0, 0, 0)
-                )
+            text=f"Kills: {kills}", size=40, colour=(0, 0, 0)
+        )
         self.layers = [
             BaseUIElement(
                 surface=text_surface,
                 location=XYFloat(
-                    (self.surface.get_width() - text_surface.get_width()) // 2,
+                    self.surface.get_width() - text_surface.get_width(),
                     (self.surface.get_height() - text_surface.get_height()) // 2,
                 ),
             )
