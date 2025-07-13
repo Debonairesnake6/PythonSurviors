@@ -56,7 +56,11 @@ class HotBarUIElement(BaseUIElement):
 
         super().__init__(self.base_surface, location, player)
 
-    def update(self, *args, **kwargs,):
+    def update(
+        self,
+        *args,
+        **kwargs,
+    ):
         self.layers = [
             self.background(),
             self.title(),
@@ -183,11 +187,12 @@ class PauseMenu(BaseUIElement):
             DISPLAY_SIZE.x,
             DISPLAY_SIZE.y,
         )
-        surface = create_surface(size=size,)
+        surface = create_surface(
+            size=size,
+        )
         super().__init__(surface, location)
 
         self.create_paused_text()
-
 
     def create_paused_text(self):
         text_surface = create_font_surface(
@@ -210,14 +215,15 @@ class TimeClock(BaseUIElement):
             DISPLAY_SIZE.x // 10,
             DISPLAY_SIZE.y // 20,
         )
-        surface = create_surface(size=size,)
+        surface = create_surface(
+            size=size,
+        )
         super().__init__(surface, location)
 
-
-    def update(self, *args, total_time: float = 0 , **kwargs):
+    def update(self, *args, total_time: float = 0, **kwargs):
         text_surface = create_font_surface(
-                    text=time_to_string(total_time), size=40, colour=(0, 0, 0)
-                )
+            text=time_to_string(total_time), size=40, colour=(0, 0, 0)
+        )
         self.layers = [
             BaseUIElement(
                 surface=text_surface,
@@ -235,7 +241,7 @@ class Kills(BaseUIElement):
             DISPLAY_SIZE.x // 10,
             DISPLAY_SIZE.y // 20,
         )
-        surface = create_surface(size=size,)
+        surface = create_surface(size=size)
         super().__init__(surface, location)
 
 
@@ -256,7 +262,10 @@ class Kills(BaseUIElement):
 
 class Overlay:
     def __init__(
-        self, game_display: Surface, player: Player, paused: bool,
+        self,
+        game_display: Surface,
+        player: Player,
+        paused: bool,
     ):
         self.game_display = game_display
         self.player = player
@@ -264,11 +273,17 @@ class Overlay:
 
         self.pause_menu: PauseMenu = PauseMenu(
             location=XYFloat(
-                0, 0,
+                0,
+                0,
             ),
         )
 
         self.layers: list[BaseUIElement] = []
+        self.add_resources()
+        self.add_time_clock()
+        self.add_kills()
+
+    def add_resources(self):
         self.layers.append(
             Resources(
                 location=XYFloat(
@@ -279,6 +294,7 @@ class Overlay:
             )
         )
 
+    def add_time_clock(self):
         self.layers.append(
             TimeClock(
                 location=XYFloat(
@@ -288,6 +304,7 @@ class Overlay:
             )
         )
 
+    def add_kills(self):
         self.layers.append(
             Kills(
                 location=XYFloat(
@@ -298,6 +315,7 @@ class Overlay:
         )
 
     def update(self, paused: bool, total_time: float, kills: int):
+        # If pause is toggled
         if paused and not self.previously_paused:
             self.layers.insert(0, self.pause_menu)
         elif not paused and self.previously_paused:

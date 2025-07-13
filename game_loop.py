@@ -192,7 +192,6 @@ class Game:
         if self.player_input.down:
             self.player.location.y += self.player.speed * self.delta_time
 
-
     def update_enemies(self):
         for enemy_character in self.enemies:
             new_location = calculate_pathing(

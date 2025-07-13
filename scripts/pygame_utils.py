@@ -148,6 +148,7 @@ def configure_icecream():
         includeContext=True,
     )
 
+
 def time_to_string(time: float) -> str:
     seconds = time % 60
     minutes = math.floor(time / 60) % 60

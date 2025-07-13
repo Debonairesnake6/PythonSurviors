@@ -137,7 +137,7 @@ class BaseWeapon:
     def update(
         self,
         delta_time: float,
-        player: 'Player',
+        player: "Player",
         enemies: list[Enemy],
         game_display: Surface,
         drops: list[BaseDrop],
