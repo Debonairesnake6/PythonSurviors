@@ -1,5 +1,5 @@
 import math
-from pygame import Surface, SRCALPHA, mouse, font, math as pmath
+from pygame import Surface, SRCALPHA, mouse, font, math as pmath, image
 from scripts.readable_classes import XYInt, XYFloat
 from scripts import config
 from functools import lru_cache
@@ -135,12 +135,12 @@ def default_font(size: int = 20):
 
 def log(text: str):
     print(text)
-    with open("log.txt", "a") as file:
+    with open("logs/log.txt", "a") as file:
         file.write(f"{text}\n")
 
 
 def configure_icecream():
-    with open("log.txt", "w") as file:
+    with open("logs/log.txt", "w") as file:
         file.write(f"")
     ic.configureOutput(
         prefix="Debug| ",
@@ -153,3 +153,13 @@ def time_to_string(time: float) -> str:
     seconds = time % 60
     minutes = math.floor(time / 60) % 60
     return f"{minutes:02.0f}:{seconds:02.0f}"
+
+
+def calculate_inner_picture_size(parent_size: XYInt, rows: int, columns: int, border: int) -> XYInt:
+    return XYInt(
+        (parent_size.x - (columns + 1) * border) // columns,
+        (parent_size.y - (rows + 1) * border) // rows,
+    )
+
+def surface_to_file(surface: Surface, name: str = "debug"):
+    image.save(surface, f"logs/{name}.png")

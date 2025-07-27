@@ -5,7 +5,7 @@ import sys
 import time
 import random
 
-from pygame import Surface, image
+from pygame import Surface, image, mouse
 
 from entities.base_entity import BaseDrop
 from scripts import (
@@ -45,6 +45,7 @@ class Game:
         self.previous_player_input: readable_classes.DirectionBool = (
             readable_classes.DirectionBool(False, False, False, False)
         )
+        self.player_mouse: readable_classes.PlayerMouse = readable_classes.PlayerMouse(False, False)
 
         # Entities
         self.player = player.Player(
@@ -88,7 +89,8 @@ class Game:
         now = time.time()
         self.delta_time = now - self.last_time
         self.last_time = now
-        self.total_time += self.delta_time
+        if not self.paused:
+            self.total_time += self.delta_time
 
     # def calculate_camera(self) -> readable_classes.XYInt:
     #     self.scroll.x += (self.camera_movement.right - self.camera_movement.left) * 2
@@ -117,23 +119,23 @@ class Game:
                     sys.exit()
 
                 # Click
-                # case pygame.MOUSEBUTTONDOWN:
-                #     match event.button:
-                #         case 1:  # Left click
-                #             self.player_input.left_click = True
-                #         case 3:  # Right click
-                #             self.player_input.right_click = True
+                case pygame.MOUSEBUTTONDOWN:
+                    match event.button:
+                        case 1:  # Left click
+                            self.player_mouse.left_click = True
+                        # case 3:  # Right click
+                        #     self.player_input.right_click = True
                 # case 4:  # Sroll Up
                 #     self.zoom = self.zoom * 2.0 if self.zoom < 4.0 else 4.0
                 # case 5:  # Scroll down
                 #     self.zoom = self.zoom / 2.0 if self.zoom > 1.0 else 1.0
 
-                # case pygame.MOUSEBUTTONUP:
-                #     match event.button:
-                #         case 1:  # Left click
-                #             self.player_input.left_click = False
-                #         case 3:  # Right click
-                #             self.player_input.right_click = False
+                case pygame.MOUSEBUTTONUP:
+                    match event.button:
+                        case 1:  # Left click
+                            self.player_mouse.left_click = False
+                        # case 3:  # Right click
+                        #     self.player_input.right_click = False
 
                 # Key Press
                 case pygame.KEYDOWN:
@@ -173,6 +175,8 @@ class Game:
                             self.player_input.up = False
                         case pygame.K_DOWN | pygame.K_s:
                             self.player_input.down = False
+
+        self.player_mouse.mouse_position = XYFloat.from_tuple(mouse.get_pos())
 
     def draw_screen(self):
         self.game_screen.blit(
@@ -261,7 +265,7 @@ class Game:
 
         self.game_display.blit(self.player.surface, self.player.location.to_tuple())
 
-        self.overlay.update(self.paused, self.total_time, self.player.kills)
+        self.paused = self.overlay.update(self.paused, self.total_time, self.player.kills, self.player_mouse)
 
     def run(self):
         self.player.weapon_slots.append(Pistol())

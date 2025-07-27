@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABC
 import random
 from scripts.readable_classes import XYFloat, XYInt
-from scripts.pygame_utils import create_surface, default_font
+from scripts.pygame_utils import create_surface, default_font, surface_to_file
 from pygame import Surface, FRect
 from pygame.transform import flip
 from scripts.config import BASE_SPEED
@@ -17,7 +17,8 @@ class BaseEntity:
         self,
         surface: Surface = None,
         location: XYFloat = None,
-        logging: bool = True,
+        logging: bool = False,
+        name: str = None,
     ):
         if location:
             self.location = location
@@ -29,10 +30,17 @@ class BaseEntity:
         else:
             self.surface = create_surface(colour=(0, 0, 0), size=XYInt(20, 20))
 
-        if logging:
-            ic(
-                f"Entity: {self.__class__.__name__}\t|\tLocation: {self.location}\t|\tSize: {self.surface.get_size()}"
-            )
+        self.name = name
+
+        self.logging = logging
+        if self.logging:
+            self.log()
+
+    def log(self):
+        ic(
+            f"Entity: {self.__class__.__name__ if self.name is None else self.name}\t|\tLocation: {self.location}\t|\tSize: {self.surface.get_size()}"
+        )
+        surface_to_file(self.surface, self.__class__.__name__ if self.name is None else self.name)
 
     def get_rect(self) -> FRect:
         return FRect(self.location.to_tuple(), self.surface.get_rect().size)

@@ -1,26 +1,35 @@
 from functools import lru_cache
 
 from pygame import Surface
-
-from entities.player import Player
 from entities.base_entity import BaseEntity
-from scripts.readable_classes import XYFloat, XYInt
-from scripts.pygame_utils import create_surface, create_font_surface, time_to_string
+from scripts.readable_classes import XYFloat, XYInt, PlayerMouse
+from scripts.pygame_utils import create_surface, create_font_surface, time_to_string, calculate_inner_picture_size
 from scripts.config import DISPLAY_SIZE
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from entities.player import Player
 
 
 class BaseUIElement(BaseEntity):
     def __init__(
         self,
+        name: str,
         surface: Surface = None,
         location: XYFloat = None,
-        player: Player = None,
+        player: "Player" = None,
         logging: bool = True,
+        parent_location: XYFloat = None,
     ):
-        super().__init__(surface, location, logging)
+        super().__init__(surface, location, logging, name=name)
         self.player = player
         self.base_surface = self.surface
         self.layers: list[BaseUIElement] = []
+        self.parent_location = parent_location if parent_location else XYFloat(0, 0)
+
+    @property
+    def absolute_location(self):
+        return self.parent_location + self.location
 
     @property
     def full_surface(self):
@@ -44,17 +53,22 @@ class BaseUIElement(BaseEntity):
         for layer in self.layers:
             layer.update()
 
+    def clicked(self, *args, **kwargs):
+        return False
+
 
 class HotBarUIElement(BaseUIElement):
-    def __init__(self, location: XYFloat, player: Player, size: XYInt, title_text: str):
-        self.location = location
+    def __init__(
+        self, location: XYFloat, player: "Player", size: XYInt, title_text: str, parent_location: XYFloat = None, name: str = None,
+    ):
+        self.location: XYFloat = location
         self.player = player
         self.size = size
         self.title_text = title_text
         self.base_surface = self.background().surface.copy()
         self.update()
 
-        super().__init__(self.base_surface, location, player)
+        super().__init__(name, self.base_surface, location, player, parent_location=parent_location)
 
     def update(
         self,
@@ -71,7 +85,7 @@ class HotBarUIElement(BaseUIElement):
     @lru_cache
     def background(self) -> BaseUIElement:
         background_surface = create_surface(size=self.size, colour=(100, 100, 100))
-        return BaseUIElement(surface=background_surface, location=self.location)
+        return BaseUIElement(surface=background_surface, location=self.location, name=self.name if 'name' in dir(self) else None)
 
     @lru_cache
     def title(self) -> BaseUIElement:
@@ -80,12 +94,12 @@ class HotBarUIElement(BaseUIElement):
         )
         location = XYFloat(
             self.background().surface.get_width() // 2 - font_surface.get_width() // 2,
-            self.background().surface.get_height() // 2
-            - font_surface.get_height() // 4 * 4,
+            self.background().surface.get_height() // 2 - font_surface.get_height(),
         )
         return BaseUIElement(
             surface=font_surface,
             location=location,
+            name=self.name if 'name' in dir(self) else None,
         )
 
     def amount(self) -> BaseUIElement:
@@ -98,7 +112,7 @@ class HotBarUIElement(BaseUIElement):
             self.background().surface.get_height() // 2
             - amount_surface.get_height() // 4,
         )
-        return BaseUIElement(surface=amount_surface, location=location, logging=False)
+        return BaseUIElement(surface=amount_surface, location=location, logging=False, name=self.name if 'name' in dir(self) else None)
 
     def determine_amount(self) -> str:
         return "NOT IMPLEMENTED"
@@ -120,13 +134,13 @@ class Level(HotBarUIElement):
 
 
 class Resources(BaseUIElement):
-    def __init__(self, location: XYFloat, player: Player):
+    def __init__(self, location: XYFloat, player: "Player"):
         size = XYInt(
             DISPLAY_SIZE.x // 3,
             DISPLAY_SIZE.y // 10,
         )
         surface = create_surface(size=size, colour=(0, 0, 0))
-        super().__init__(surface, location, player)
+        super().__init__("Resources", surface, location, player)
 
         self.create_money()
         self.create_experience()
@@ -182,27 +196,30 @@ class Resources(BaseUIElement):
 
 
 class PauseMenu(BaseUIElement):
-    def __init__(self, location: XYFloat):
-        size = XYInt(
-            DISPLAY_SIZE.x,
-            DISPLAY_SIZE.y,
+    def __init__(self):
+        self.text_surface = create_font_surface(
+            text="Paused", size=400, colour=(0, 0, 0)
         )
         surface = create_surface(
-            size=size,
+            size=XYInt.from_tuple(self.text_surface.get_size()),
         )
-        super().__init__(surface, location)
+        location = XYFloat(
+            (DISPLAY_SIZE.x - surface.get_width()) // 2,
+            (DISPLAY_SIZE.y - surface.get_height()) // 2,
+        )
+        super().__init__("PauseMenu", surface, location)
 
-        self.create_paused_text()
+        self.add_paused_text()
 
-    def create_paused_text(self):
-        text_surface = create_font_surface(text="Paused", size=400, colour=(0, 0, 0))
+    def add_paused_text(self):
         self.layers = [
             BaseUIElement(
-                surface=text_surface,
+                surface=self.text_surface,
                 location=XYFloat(
-                    (self.surface.get_width() - text_surface.get_width()) // 2,
-                    0,
+                    (self.surface.get_width() - self.text_surface.get_width()) // 2,
+                    (self.surface.get_height() - self.text_surface.get_height()) // 2,
                 ),
+                name=self.name,
             )
         ]
 
@@ -216,8 +233,10 @@ class TimeClock(BaseUIElement):
         surface = create_surface(
             size=size,
         )
-        super().__init__(surface, location)
+        super().__init__("TimeClock", surface, location)
+        self.logging = False
 
+    @lru_cache(maxsize=10)
     def update(self, *args, total_time: float = 0, **kwargs):
         text_surface = create_font_surface(
             text=time_to_string(total_time), size=40, colour=(0, 0, 0)
@@ -229,8 +248,73 @@ class TimeClock(BaseUIElement):
                     (self.surface.get_width() - text_surface.get_width()) // 2,
                     0,
                 ),
+                name=self.name,
             )
         ]
+
+
+class Button(HotBarUIElement):
+    def __init__(self, parent_location: XYFloat, *args, **kwargs):
+        super().__init__(*args, **kwargs, parent_location=parent_location)
+
+
+class LevelOption(Button):
+    def determine_amount(self) -> str:
+        return f'Test'
+
+
+class LevelMenu(BaseUIElement):
+    def __init__(self, player: 'Player'):
+        self.border = 5
+        self.rows = 1
+        size = XYInt(
+            DISPLAY_SIZE.x // 2,
+            DISPLAY_SIZE.y // 2,
+        )
+        location = XYFloat(
+            DISPLAY_SIZE.x // 4,
+            DISPLAY_SIZE.y // 4,
+        )
+        surface = create_surface(size=size, colour=(0, 0, 0))
+        super().__init__("LevelMenu", surface, location, player)
+        self.choice_made = False
+
+    def get_option(self):
+        size = calculate_inner_picture_size(
+                parent_size=XYInt.from_tuple(self.surface.get_size()),
+                rows=self.rows,
+                columns=self.player.level_options,
+                border=self.border,
+            )
+        return LevelOption(
+            size=size,
+            location=XYFloat(
+                self.border + self.border * len(self.layers) + len(self.layers) * size.x,
+                self.border
+            ),
+            player=self.player,
+            title_text=f'Option {len(self.layers) + 1}',
+            parent_location=self.location,
+        )
+
+    @lru_cache(maxsize=1)
+    def determine_options(self, _: int):
+        self.layers = []
+        for _ in range(self.player.level_options):
+            self.layers.append(self.get_option())
+
+    def update(self, *args, **kwargs):
+        self.determine_options(int(self.player.level))
+        super().update()
+
+    def clicked(self, location: XYInt, *args, **kwargs):
+        for option in self.layers:
+            if option.absolute_location.x <= location.x <= option.absolute_location.x + option.size.x:
+                if option.absolute_location.y <= location.y <= option.absolute_location.y + option.size.y:
+                    self.choice_made = True
+                    self.player.recently_leveled_up = False
+                    self.player.weapon_slots[0].cooldown /= 2
+        return True
 
 
 class Kills(BaseUIElement):
@@ -240,8 +324,9 @@ class Kills(BaseUIElement):
             DISPLAY_SIZE.y // 20,
         )
         surface = create_surface(size=size)
-        super().__init__(surface, location)
+        super().__init__("Kills", surface, location)
 
+    @lru_cache(maxsize=10)
     def update(self, *args, kills: int = 0, **kwargs):
         text_surface = create_font_surface(
             text=f"Kills: {kills}", size=40, colour=(0, 0, 0)
@@ -253,6 +338,7 @@ class Kills(BaseUIElement):
                     self.surface.get_width() - text_surface.get_width(),
                     (self.surface.get_height() - text_surface.get_height()) // 2,
                 ),
+                name=self.name,
             )
         ]
 
@@ -261,19 +347,16 @@ class Overlay:
     def __init__(
         self,
         game_display: Surface,
-        player: Player,
+        player: "Player",
         paused: bool,
     ):
         self.game_display = game_display
         self.player = player
         self.previously_paused = paused
+        self.previously_level_up = False
 
-        self.pause_menu: PauseMenu = PauseMenu(
-            location=XYFloat(
-                0,
-                0,
-            ),
-        )
+        self.pause_menu: PauseMenu = PauseMenu()
+        self.level_menu: LevelMenu = LevelMenu(self.player)
 
         self.layers: list[BaseUIElement] = []
         self.add_resources()
@@ -311,14 +394,37 @@ class Overlay:
             )
         )
 
-    def update(self, paused: bool, total_time: float, kills: int):
-        # If pause is toggled
-        if paused and not self.previously_paused:
-            self.layers.insert(0, self.pause_menu)
-        elif not paused and self.previously_paused:
+    def update(self, paused: bool, total_time: float, kills: int, player_mouse: PlayerMouse):
+        if player_mouse.left_click:
+            if self.click(player_mouse.mouse_position):
+                paused = False
+
+        # If the player is choosing an option when leveling up
+        elif self.player.recently_leveled_up and self.level_menu not in self.layers:
+            self.layers.append(self.level_menu)
+            paused = True
+        elif self.level_menu in self.layers and self.level_menu.choice_made:
+            self.level_menu.choice_made = False
+            self.layers.remove(self.level_menu)
+            self.player.recently_leveled_up = False
+
+        # If pause is manually toggled
+        elif paused and not self.previously_paused:
+            self.layers.append(self.pause_menu)
+        elif not paused and self.pause_menu in self.layers:
             self.layers.remove(self.pause_menu)
         self.previously_paused = paused
 
         for layer in self.layers:
             layer.update(total_time=total_time, kills=kills)
+            if layer.logging:
+                layer.log()
             self.game_display.blit(layer.full_surface, layer.location)
+
+        return paused
+
+    def click(self, location: XYFloat):
+        for layer in self.layers:
+            if layer.clicked(location):
+                return True
+        return False

@@ -137,9 +137,10 @@ class CurrentMaxInt:
 
 
 @dataclass(slots=True)
-class PlayerInput:
+class PlayerMouse:
     left_click: bool = False
     right_click: bool = False
+    mouse_position: XYFloat = XYFloat(0, 0)
 
     def copy(self):
-        return PlayerInput(self.left_click, self.right_click)
+        return PlayerMouse(self.left_click, self.right_click)

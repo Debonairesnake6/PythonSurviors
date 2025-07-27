@@ -23,6 +23,8 @@ class Player(BaseSprite):
         self._level: int = 1
         self.next_level_experience: int = 5
         self.kills: int = 0
+        self.recently_leveled_up: bool = False
+        self.level_options: int = 3
 
     @property
     def level(self):
@@ -30,6 +32,8 @@ class Player(BaseSprite):
 
     @level.setter
     def level(self, value: int):
+        if value > 0:
+            self.recently_leveled_up = True
         self._level = value
 
     @property
