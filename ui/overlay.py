@@ -320,22 +320,24 @@ class LevelMenu(BaseUIElement):
 class Kills(BaseUIElement):
     def __init__(self, location: XYFloat):
         size = XYInt(
-            DISPLAY_SIZE.x // 10,
+            DISPLAY_SIZE.x,
             DISPLAY_SIZE.y // 20,
         )
         surface = create_surface(size=size)
         super().__init__("Kills", surface, location)
+        self._location = location.copy()
 
     @lru_cache(maxsize=10)
     def update(self, *args, kills: int = 0, **kwargs):
         text_surface = create_font_surface(
             text=f"Kills: {kills}", size=40, colour=(0, 0, 0)
         )
+        self.location.x = self._location.x - text_surface.get_width()
         self.layers = [
             BaseUIElement(
                 surface=text_surface,
                 location=XYFloat(
-                    self.surface.get_width() - text_surface.get_width(),
+                    0,
                     (self.surface.get_height() - text_surface.get_height()) // 2,
                 ),
                 name=self.name,
@@ -388,7 +390,7 @@ class Overlay:
         self.layers.append(
             Kills(
                 location=XYFloat(
-                    DISPLAY_SIZE.x - DISPLAY_SIZE.x // 10,
+                    DISPLAY_SIZE.x,
                     0,
                 ),
             )
