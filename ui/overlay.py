@@ -18,7 +18,7 @@ class BaseUIElement(BaseEntity):
         surface: Surface = None,
         location: XYFloat = None,
         player: "Player" = None,
-        logging: bool = True,
+        logging: bool = False,
         parent_location: XYFloat = None,
     ):
         super().__init__(surface, location, logging, name=name)
@@ -236,13 +236,16 @@ class TimeClock(BaseUIElement):
         super().__init__("TimeClock", surface, location)
         self.logging = False
 
-    @lru_cache(maxsize=10)
-    def update(self, *args, total_time: float = 0, **kwargs):
-        text_surface = create_font_surface(
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _cached_surface(total_time: float):
+        return create_font_surface(
             text=time_to_string(total_time), size=40, colour=(0, 0, 0)
         )
-        self.layers = [
-            BaseUIElement(
+
+    @lru_cache(maxsize=1)
+    def _cached_element(self, text_surface: Surface):
+        return BaseUIElement(
                 surface=text_surface,
                 location=XYFloat(
                     (self.surface.get_width() - text_surface.get_width()) // 2,
@@ -250,6 +253,12 @@ class TimeClock(BaseUIElement):
                 ),
                 name=self.name,
             )
+
+    @lru_cache(maxsize=10)
+    def update(self, *args, total_time: float = 0, **kwargs):
+        text_surface = self._cached_surface(total_time)
+        self.layers = [
+            self._cached_element(text_surface),
         ]
 
 
@@ -327,21 +336,29 @@ class Kills(BaseUIElement):
         super().__init__("Kills", surface, location)
         self._location = location.copy()
 
-    @lru_cache(maxsize=10)
-    def update(self, *args, kills: int = 0, **kwargs):
-        text_surface = create_font_surface(
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _cached_surface(kills: int):
+        return create_font_surface(
             text=f"Kills: {kills}", size=40, colour=(0, 0, 0)
         )
+
+    @lru_cache(maxsize=1)
+    def _cached_element(self, text_surface: Surface):
+        return BaseUIElement(
+            surface=text_surface,
+            location=XYFloat(
+                0,
+                (self.surface.get_height() - text_surface.get_height()) // 2,
+            ),
+            name=self.name,
+        )
+
+    def update(self, *args, kills: int = 0, **kwargs):
+        text_surface = self._cached_surface(kills)
         self.location.x = self._location.x - text_surface.get_width()
         self.layers = [
-            BaseUIElement(
-                surface=text_surface,
-                location=XYFloat(
-                    0,
-                    (self.surface.get_height() - text_surface.get_height()) // 2,
-                ),
-                name=self.name,
-            )
+            self._cached_element(text_surface),
         ]
 
 
