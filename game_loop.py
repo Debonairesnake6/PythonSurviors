@@ -14,10 +14,11 @@ from scripts import (
 )
 from entities import player, enemy
 from scripts.readable_classes import XYFloat
-from scripts.pygame_utils import calculate_pathing, tile_background, default_font
+from scripts.pygame_utils import calculate_pathing, tile_background, default_font, create_font_surface
 from ui.overlay import Overlay
 from weapons.weapons import Pistol
 from weapons.base_weapon import BaseEffect
+from scripts.collision_system import HighPerformanceCollisionSystem, WeaponCollisionHelper
 
 
 class Game:
@@ -36,9 +37,6 @@ class Game:
         pygame.display.set_caption("Python Survivors")
 
         # Player inputs
-        # self.camera_movement: readable_classes.DirectionBool = (
-        #     readable_classes.DirectionBool(False, False, False, False)
-        # )
         self.player_input: readable_classes.DirectionBool = (
             readable_classes.DirectionBool(False, False, False, False)
         )
@@ -60,7 +58,6 @@ class Game:
 
         # Tile Map
         self.level = 0
-        # self.load_level()
 
         # Framerate
         self.clock: pygame.time.Clock = pygame.time.Clock()
@@ -73,11 +70,17 @@ class Game:
         self.paused = False
         self.overlay: Overlay = Overlay(self.game_display, self.player, self.paused)
 
+        # Initialize collision system
+        self.collision_system = HighPerformanceCollisionSystem(cell_size=64)
+        self.weapon_collision_helper = WeaponCollisionHelper()
+        self.weapon_collision_helper.set_collision_system(self.collision_system)
+
+        # Debug display
+        self.debug_font = default_font(20)
+        self.show_debug = False
+
     def load_level(self):
         ...
-        # self.tile_map.load(f"data/maps/{self.level}.json")
-        # if len(self.tile_map.tiles) == 0:
-        #     self.tile_map.generate(self.grid_size)
 
     def display_framerate(self):
         rate_text = self.framerate_font.render(
@@ -85,26 +88,18 @@ class Game:
         )
         self.game_display.blit(rate_text, (0, 0))
 
+    def display_debug_info(self):
+        """Display collision system debug information"""
+        if self.show_debug:
+            debug_text = create_font_surface(self.collision_system.get_debug_info(), (255, 0, 0), 40)
+            self.game_display.blit(debug_text, (0, 50))
+
     def calculate_delta_time(self):
         now = time.time()
         self.delta_time = now - self.last_time
         self.last_time = now
         if not self.paused:
             self.total_time += self.delta_time
-
-    # def calculate_camera(self) -> readable_classes.XYInt:
-    #     self.scroll.x += (self.camera_movement.right - self.camera_movement.left) * 2
-    #     self.scroll.x = max(
-    #         min(self.scroll.x, config.DISPLAY_SIZE.x),
-    #         # -self.tile_size
-    #         - (
-    #             self.game_display.get_width() / 2 * self.zoom
-    #             # - self.game_display.get_width() / 2 * self.zoom
-    #         ),
-    #     )
-    #     self.scroll.y += (self.camera_movement.down - self.camera_movement.up) * 2
-    #     render_scroll = readable_classes.XYInt(int(self.scroll.x), int(self.scroll.y))
-    #     return render_scroll
 
     def get_screen_center(self) -> XYFloat:
         return XYFloat(
@@ -123,19 +118,11 @@ class Game:
                     match event.button:
                         case 1:  # Left click
                             self.player_mouse.left_click = True
-                        # case 3:  # Right click
-                        #     self.player_input.right_click = True
-                # case 4:  # Sroll Up
-                #     self.zoom = self.zoom * 2.0 if self.zoom < 4.0 else 4.0
-                # case 5:  # Scroll down
-                #     self.zoom = self.zoom / 2.0 if self.zoom > 1.0 else 1.0
 
                 case pygame.MOUSEBUTTONUP:
                     match event.button:
                         case 1:  # Left click
                             self.player_mouse.left_click = False
-                        # case 3:  # Right click
-                        #     self.player_input.right_click = False
 
                 # Key Press
                 case pygame.KEYDOWN:
@@ -150,8 +137,6 @@ class Game:
                             self.player_input.up = True
                         case pygame.K_DOWN | pygame.K_s:
                             self.player_input.down = True
-                        # case pygame.K_o:
-                        #     self.framerate = 60 if not self.framerate == 60 else 240
                         case pygame.K_g:
                             self.player.weapon_slots[0].effects.append(
                                 BaseEffect(
@@ -159,10 +144,10 @@ class Game:
                                     damage_multiplier=5,
                                 )
                             )
+                        case pygame.K_F3:  # Toggle debug display
+                            self.show_debug = not self.show_debug
                         case pygame.K_ESCAPE:
                             self.paused = not self.paused
-                        # case pygame.K_SPACE:
-                        #     self.player
 
                 # Key Release
                 case pygame.KEYUP:
@@ -254,13 +239,18 @@ class Game:
                 enemy_character.surface, enemy_character.location.to_tuple()
             )
 
+        # Clear the collision helper for this frame
+        self.weapon_collision_helper.clear_frame()
+
+        # Update all weapons and collect their ammo
         for weapon in self.player.weapon_slots:
-            weapon.update(
+            weapon.update_with_collision_system(
                 self.delta_time if not self.paused else 0,
                 self.player,
                 self.enemies,
                 self.game_display,
                 self.drops,
+                self.weapon_collision_helper,
             )
 
         self.game_display.blit(self.player.surface, self.player.location.to_tuple())
@@ -286,8 +276,11 @@ class Game:
             self.previous_player_input = self.player_input.copy()
             self.get_user_input()
 
-            # Update all entities
             if not self.paused:
+                # Update collision system with current enemies
+                self.collision_system.update_enemies(self.enemies)
+
+                # Update all entities
                 self.update_drops()
                 self.update_enemies()
                 self.update_player()
@@ -298,5 +291,6 @@ class Game:
                 break
 
             self.display_framerate()
+            self.display_debug_info()
             self.draw_screen()
             self.clock.tick(self.framerate)

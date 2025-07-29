@@ -12,9 +12,9 @@ from entities.base_entity import BaseDrop
 from icecream import ic
 from typing import TYPE_CHECKING
 
-
 if TYPE_CHECKING:
     from entities.player import Player
+    from scripts.collision_system import WeaponCollisionHelper
 
 
 class BaseEffect:
@@ -87,7 +87,7 @@ class BaseAmmo:
             self.base_ammo_speed,
             delta_time,
         ):
-            return False
+            return True
 
         self.current_location = calculate_pathing(
             self.current_location,
@@ -96,7 +96,7 @@ class BaseAmmo:
             delta_time,
         )
 
-        return True
+        return False
 
     def get_rect(self) -> FRect:
         return FRect(self.current_location.to_tuple(), self.surface.get_rect().size)
@@ -142,6 +142,7 @@ class BaseWeapon:
         game_display: Surface,
         drops: list[BaseDrop],
     ) -> None:
+        """Legacy update method - kept for backwards compatibility"""
         if self.current_cooldown > 0:
             self.current_cooldown = max(self.current_cooldown - delta_time, 0)
         else:
@@ -152,7 +153,7 @@ class BaseWeapon:
 
             if delta_time == 0:
                 continue
-            elif not ammo.location_reached(delta_time):
+            elif ammo.location_reached(delta_time):
                 self.active_ammo.remove(ammo)
             elif enemy := self.hit_enemy(ammo, enemies):
                 self.active_ammo.remove(ammo)
@@ -178,8 +179,86 @@ class BaseWeapon:
             else:
                 self.damage_text.remove(animation)
 
+    def update_with_collision_system(
+            self,
+            delta_time: float,
+            player: "Player",
+            enemies: list[Enemy],
+            game_display: Surface,
+            drops: list[BaseDrop],
+            collision_helper: "WeaponCollisionHelper",
+    ) -> None:
+        """New update method using the collision system"""
+        # Handle weapon cooldown and firing
+        if self.current_cooldown > 0:
+            self.current_cooldown = max(self.current_cooldown - delta_time, 0)
+        else:
+            self.fire_weapon(player.location_center, enemies)
+
+        # Register all active ammo with the collision system
+        collision_helper.register_ammo(self.active_ammo)
+
+        # Update ammo positions and render them
+        for ammo in self.active_ammo.copy():
+            game_display.blit(ammo.surface, ammo.current_location.to_tuple())
+
+            if delta_time == 0:
+                continue
+
+            # Check if ammo has reached its target location
+            if ammo.location_reached(delta_time):
+                self.active_ammo.remove(ammo)
+                continue
+
+        # Process collisions after all weapons have registered their ammo
+        # This is called once per frame in the game loop
+        if collision_helper.all_ammo:  # Only process if there's ammo to check
+            collision_results = collision_helper.process_all_collisions()
+
+            # Handle collision results
+            for ammo, enemy in collision_results.items():
+                if ammo in self.active_ammo:  # Make sure this weapon owns this ammo
+                    self.handle_ammo_hit(ammo, enemy, enemies, drops, player)
+
+        # Update damage text animations
+        for animation in self.damage_text.copy():
+            if next_frame := animation.next_frame(delta_time):
+                game_display.blit(next_frame, animation.location.to_tuple())
+            else:
+                self.damage_text.remove(animation)
+
+    def handle_ammo_hit(
+            self,
+            ammo: BaseAmmo,
+            enemy: Enemy,
+            enemies: list[Enemy],
+            drops: list[BaseDrop],
+            player: "Player"
+    ):
+        """Handle what happens when ammo hits an enemy"""
+        self.active_ammo.remove(ammo)
+
+        ammo.effect_enemy(enemy)
+
+        # Create damage text animation
+        damage_animation = enemy.damage_font.render(
+            str(int(ammo.damage)), True, (0, 0, 0)
+        )
+        self.damage_text.append(
+            Animation(damage_animation, 0.25, location=enemy.location)
+        )
+
+        # Handle enemy death
+        if enemy.health <= 0:
+            if drop := enemy.die():
+                drops.append(drop)
+            if enemy in enemies:
+                enemies.remove(enemy)
+                player.kills += 1
+
     @staticmethod
     def hit_enemy(ammo: BaseAmmo, enemies: list[Enemy]) -> Enemy | None:
+        """Legacy collision detection - kept for backwards compatibility"""
         for enemy in enemies:
             if ammo.get_rect().colliderect(enemy.get_rect()):
                 return enemy

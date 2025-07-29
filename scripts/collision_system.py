@@ -183,9 +183,9 @@ class HighPerformanceCollisionSystem:
         collisions_count: int = self.stats['collisions_found']
         cells_count: int = self.stats['cells_used']
 
-        return (f"Enemies: {enemies_count}, "
-                f"Ammo: {ammo_count}, "
-                f"Collisions: {collisions_count}, "
+        return (f"Enemies: {enemies_count}\n"
+                f"Ammo: {ammo_count}\n"
+                f"Collisions: {collisions_count}\n"
                 f"Cells: {cells_count}")
 
 
