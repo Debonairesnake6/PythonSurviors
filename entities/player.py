@@ -1,4 +1,4 @@
-from scripts.readable_classes import XYFloat, XYInt
+from scripts.readable_classes import XYFloat
 from entities.base_entity import BaseSprite
 from pygame import Surface, image
 from weapons.base_weapon import BaseWeapon
@@ -25,6 +25,7 @@ class Player(BaseSprite):
         self.kills: int = 0
         self.recently_leveled_up: bool = False
         self.level_options: int = 3
+        self.ammo_size: float = 1
 
     @property
     def level(self):

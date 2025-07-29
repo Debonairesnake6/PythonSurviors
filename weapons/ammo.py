@@ -14,6 +14,7 @@ class Normal(BaseAmmo):
         base_ammo_speed: float = BASE_SPEED * 5,
         surface: Surface = None,
         effects: list[BaseEffect] = None,
+        size: float = 1
     ):
         if surface is None:
             surface = image.load("assets/ammo.png")
@@ -28,4 +29,5 @@ class Normal(BaseAmmo):
             base_ammo_speed,
             surface,
             effects,
+            size
         )

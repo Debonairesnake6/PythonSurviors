@@ -5,7 +5,8 @@ from entities.base_entity import BaseEntity
 from scripts.readable_classes import XYFloat, XYInt, PlayerMouse
 from scripts.pygame_utils import create_surface, create_font_surface, time_to_string, calculate_inner_picture_size
 from scripts.config import DISPLAY_SIZE
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
+import random
 
 if TYPE_CHECKING:
     from entities.player import Player
@@ -88,13 +89,17 @@ class HotBarUIElement(BaseUIElement):
         return BaseUIElement(surface=background_surface, location=self.location, name=self.name if 'name' in dir(self) else None)
 
     @lru_cache
-    def title(self) -> BaseUIElement:
-        font_surface = create_font_surface(
+    def title_surface(self):
+        return create_font_surface(
             text=self.title_text, size=35, colour=(200, 200, 200)
         )
+
+    @lru_cache
+    def title(self) -> BaseUIElement:
+        font_surface = self.title_surface()
         location = XYFloat(
-            self.background().surface.get_width() // 2 - font_surface.get_width() // 2,
-            self.background().surface.get_height() // 2 - font_surface.get_height(),
+            self.background().surface.get_width() // 2 - font_surface.get_width() // 2,  # todo take into consideration the amount image
+            self.background().surface.get_height() // 3 - font_surface.get_height(),
         )
         return BaseUIElement(
             surface=font_surface,
@@ -102,10 +107,13 @@ class HotBarUIElement(BaseUIElement):
             name=self.name if 'name' in dir(self) else None,
         )
 
-    def amount(self) -> BaseUIElement:
-        amount_surface = create_font_surface(
+    def amount_surface(self) -> Surface:
+        return create_font_surface(
             text=self.determine_amount(), size=45, colour=(200, 200, 200)
         )
+
+    def amount(self) -> BaseUIElement:
+        amount_surface = self.amount_surface()
         location = XYFloat(
             self.background().surface.get_width() // 2
             - amount_surface.get_width() // 2,
@@ -268,8 +276,39 @@ class Button(HotBarUIElement):
 
 
 class LevelOption(Button):
+    def __init__(self, *args, **kwargs):
+        self.reward: Callable | None = None
+        self.reward_description: str = ""
+        self.determine_amount()
+        super().__init__(*args, **kwargs, title_text=self.title_text)
+
     def determine_amount(self) -> str:
-        return f'Test'
+        if not self.reward_description:
+            return self.get_random_reward()
+        return self.reward_description
+
+    def get_random_reward(self):
+        def atk_speed():
+            for cnt in range(len(self.player.weapon_slots)):
+                self.player.weapon_slots[cnt].cooldown /= 1.3
+
+        def mov_speed():
+            self.player.speed *= 1.1
+
+        def ammo_size():
+            for cnt in range(len(self.player.weapon_slots)):
+                self.player.ammo_size *= 1.1
+
+        rewards = {
+            'Attack\t+30%\nAttack\nSpeed': atk_speed,
+            'Movement\t+10%\nMovement\nSpeed': mov_speed,
+            'Attack\t+10%\nAmmo\nSize': ammo_size,
+        }
+        reward_name = random.choice(list(rewards.keys()))
+        self.title_text = reward_name.split('\t')[0]
+        self.reward = rewards[reward_name]
+        self.reward_description = reward_name.split('\t')[-1]
+        return reward_name.split('\t')[-1]
 
 
 class LevelMenu(BaseUIElement):
@@ -302,7 +341,6 @@ class LevelMenu(BaseUIElement):
                 self.border
             ),
             player=self.player,
-            title_text=f'Option {len(self.layers) + 1}',
             parent_location=self.location,
         )
 
@@ -322,7 +360,8 @@ class LevelMenu(BaseUIElement):
                 if option.absolute_location.y <= location.y <= option.absolute_location.y + option.size.y:
                     self.choice_made = True
                     self.player.recently_leveled_up = False
-                    self.player.weapon_slots[0].cooldown /= 2
+                    option.reward()
+                    break
         return True
 
 

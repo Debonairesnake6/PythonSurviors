@@ -1,3 +1,4 @@
+import pygame.transform
 from pygame import Surface, FRect
 from entities.enemy import Enemy
 from scripts.readable_classes import XYFloat
@@ -40,14 +41,18 @@ class BaseAmmo:
         base_ammo_speed: float,
         surface: Surface,
         effects: list[BaseEffect],
+        size: float = 1,
     ):
         self.base_damage = base_damage
         self.base_ammo_speed = base_ammo_speed
-        self.surface = surface
+        self.surface = pygame.transform.scale(surface, (size * XYFloat.from_tuple(surface.get_size())).to_tuple())
+        self.base_surface = surface.copy()
+        self._base_surface_size = surface.get_size()
         self.effects = effects
 
         self.target_location = target_location
         self.current_location = current_location
+        self.size = size
 
     @property
     def damage(self) -> float:
@@ -74,6 +79,7 @@ class BaseAmmo:
                 ammo_speed *= effect.ammo_speed_multiplier
 
         return ammo_speed
+
 
     def location_reached(self, delta_time: float) -> bool:
         """
@@ -129,6 +135,7 @@ class BaseWeapon:
         self.icon = icon
 
         self.ammo = ammo
+        self.ammo_instance = ammo(XYFloat(0, 0), XYFloat(0, 0))
         self.active_ammo: list[BaseAmmo] = []
         self.damage_text: list[Animation] = []
 
@@ -193,7 +200,7 @@ class BaseWeapon:
         if self.current_cooldown > 0:
             self.current_cooldown = max(self.current_cooldown - delta_time, 0)
         else:
-            self.fire_weapon(player.location_center, enemies)
+            self.fire_weapon(player, enemies)
 
         # Register all active ammo with the collision system
         collision_helper.register_ammo(self.active_ammo)
@@ -264,7 +271,8 @@ class BaseWeapon:
                 return enemy
         return None
 
-    def fire_weapon(self, player_location: XYFloat, enemies: list[Enemy]):
+    def fire_weapon(self, player: 'Player', enemies: list[Enemy]):
+        player_location = player.location_center
         if target_location := self.get_closest_enemy_location(player_location, enemies):
             self.current_cooldown = self.cooldown
             # noinspection PyCallingNonCallable
@@ -276,6 +284,7 @@ class BaseWeapon:
                 ),
                 current_location=player_location.copy(),
                 effects=self.effects,
+                size=player.ammo_size,
             )
             new_projectile.base_damage *= self.damage_multiplier
             new_projectile.base_ammo_speed *= self.ammo_speed_multiplier
