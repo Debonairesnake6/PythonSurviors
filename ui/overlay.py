@@ -361,8 +361,8 @@ class LevelMenu(BaseUIElement):
                     self.choice_made = True
                     self.player.recently_leveled_up = False
                     option.reward()
-                    break
-        return True
+                    return True
+        return False
 
 
 class Kills(BaseUIElement):
@@ -454,14 +454,14 @@ class Overlay:
 
     def update(self, paused: bool, total_time: float, kills: int, player_mouse: PlayerMouse):
         if player_mouse.left_click:
-            if self.click(player_mouse.mouse_position):
-                paused = False
+            self.click(player_mouse.mouse_position)
 
         # If the player is choosing an option when leveling up
-        elif self.player.recently_leveled_up and self.level_menu not in self.layers:
+        if self.player.recently_leveled_up and self.level_menu not in self.layers:
             self.layers.append(self.level_menu)
             paused = True
         elif self.level_menu in self.layers and self.level_menu.choice_made:
+            paused = False
             self.level_menu.choice_made = False
             self.layers.remove(self.level_menu)
             self.player.recently_leveled_up = False
