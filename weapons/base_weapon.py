@@ -51,7 +51,7 @@ class BaseAmmo:
         self.effects = effects
 
         self.target_location = target_location
-        self.current_location = current_location
+        self.current_location = current_location - XYFloat.from_tuple(self.surface.get_size()) / 2
         self.size = size
 
     @property

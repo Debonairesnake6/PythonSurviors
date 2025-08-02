@@ -60,13 +60,19 @@ class BaseUIElement(BaseEntity):
 
 class HotBarUIElement(BaseUIElement):
     def __init__(
-        self, location: XYFloat, player: "Player", size: XYInt, title_text: str, parent_location: XYFloat = None, name: str = None,
+            self,
+            size: XYInt = XYInt(50, 50),
+            title_text: str = "NOT YET IMPLEMENTED",
+            parent_location: XYFloat = None,
+            location: XYFloat = XYFloat(0, 0),
+            player: "Player" = None,
+            name: str = None,
+            **kwargs,
     ):
-        self.location: XYFloat = location
-        self.player = player
         self.size = size
         self.title_text = title_text
         self.base_surface = self.background().surface.copy()
+        self.player = player
         self.update()
 
         super().__init__(name, self.base_surface, location, player, parent_location=parent_location)
@@ -81,12 +87,12 @@ class HotBarUIElement(BaseUIElement):
             self.title(),
             self.amount(),
         ]
-        # super().update()
 
     @lru_cache
     def background(self) -> BaseUIElement:
         background_surface = create_surface(size=self.size, colour=(100, 100, 100))
-        return BaseUIElement(surface=background_surface, location=self.location, name=self.name if 'name' in dir(self) else None)
+        return BaseUIElement(surface=background_surface, location=XYFloat(0, 0),
+                             name=self.name if hasattr(self, 'name') else None)
 
     @lru_cache
     def title_surface(self):
@@ -98,13 +104,13 @@ class HotBarUIElement(BaseUIElement):
     def title(self) -> BaseUIElement:
         font_surface = self.title_surface()
         location = XYFloat(
-            self.background().surface.get_width() // 2 - font_surface.get_width() // 2,  # todo take into consideration the amount image
+            self.background().surface.get_width() // 2 - font_surface.get_width() // 2,
             self.background().surface.get_height() // 3 - font_surface.get_height(),
         )
         return BaseUIElement(
             surface=font_surface,
             location=location,
-            name=self.name if 'name' in dir(self) else None,
+            name=self.name if hasattr(self, 'name') else None,
         )
 
     def amount_surface(self) -> Surface:
@@ -120,7 +126,8 @@ class HotBarUIElement(BaseUIElement):
             self.background().surface.get_height() // 2
             - amount_surface.get_height() // 4,
         )
-        return BaseUIElement(surface=amount_surface, location=location, logging=False, name=self.name if 'name' in dir(self) else None)
+        return BaseUIElement(surface=amount_surface, location=location, logging=False,
+                             name=self.name if hasattr(self, 'name') else None)
 
     def determine_amount(self) -> str:
         return "NOT IMPLEMENTED"
@@ -157,48 +164,45 @@ class Resources(BaseUIElement):
     def create_money(self):
         self.layers.append(
             Money(
-                location=XYFloat(
-                    5,
-                    5,
-                ),
-                player=self.player,
                 size=XYInt(
                     (self.surface.size[0] - 10) // 3 - 5,
                     self.surface.size[1] - 10,
                 ),
                 title_text="Money",
+                location=XYFloat(5, 5),
+                player=self.player,
             )
         )
 
     def create_experience(self):
         self.layers.append(
             Experience(
-                location=XYFloat(
-                    (self.surface.size[0] - 10) // 3 + 5,
-                    5,
-                ),
-                player=self.player,
                 size=XYInt(
                     (self.surface.size[0] - 10) // 3,
                     self.surface.size[1] - 10,
                 ),
                 title_text="Experience",
+                location=XYFloat(
+                    (self.surface.size[0] - 10) // 3 + 5,
+                    5,
+                ),
+                player=self.player,
             )
         )
 
     def create_level(self):
         self.layers.append(
             Level(
-                location=XYFloat(
-                    ((self.surface.size[0] - 10) // 3) * 2 + 10,
-                    5,
-                ),
-                player=self.player,
                 size=XYInt(
                     (self.surface.size[0] - 10) // 3 - 5,
                     self.surface.size[1] - 10,
                 ),
                 title_text="Level",
+                location=XYFloat(
+                    ((self.surface.size[0] - 10) // 3) * 2 + 10,
+                    5,
+                ),
+                player=self.player,
             )
         )
 
@@ -271,16 +275,28 @@ class TimeClock(BaseUIElement):
 
 
 class Button(HotBarUIElement):
-    def __init__(self, parent_location: XYFloat, *args, **kwargs):
-        super().__init__(*args, **kwargs, parent_location=parent_location)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class LevelOption(Button):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, size: XYInt, location: XYFloat, player: 'Player', parent_location: XYFloat, **kwargs):
         self.reward: Callable | None = None
         self.reward_description: str = ""
+        self.player = player
+
+        # Generate the reward and get title_text
         self.determine_amount()
-        super().__init__(*args, **kwargs, title_text=self.title_text)
+
+        # Now call parent with all required arguments
+        super().__init__(
+            size=size,
+            title_text=self.title_text,
+            location=location,
+            player=player,
+            parent_location=parent_location,
+            **kwargs
+        )
 
     def determine_amount(self) -> str:
         if not self.reward_description:
@@ -288,27 +304,90 @@ class LevelOption(Button):
         return self.reward_description
 
     def get_random_reward(self):
+        # Calculate scaling bonuses based on player level
+        level_multiplier = 1 + (self.player.level - 1) * 0.1  # 10% more per level
+
+        # Get current stats for before/after display
+        current_attack_speed = self.player.weapon_slots[0].cooldown if self.player.weapon_slots else 1.0
+        current_move_speed = self.player.speed
+        current_ammo_size = self.player.ammo_size
+        current_health = self.player.health
+
+        # Calculate bonuses
+        attack_speed_bonus = 0.20 + (0.05 * level_multiplier)  # 15-20%+ scaling
+        move_speed_bonus = 0.08 + (0.02 * level_multiplier)  # 8-10%+ scaling
+        ammo_size_bonus = 0.20 + (0.03 * level_multiplier)  # 12-15%+ scaling
+        health_bonus = max(1, int(level_multiplier))  # +1 health minimum, scales with level
+        damage_bonus = 0.2 + (0.1 * level_multiplier)  # 20-30%+ scaling
+        range_bonus = 0.1 + (0.05 * level_multiplier)  # 10-15%+ scaling
+
+        # Calculate after values
+        new_attack_speed = current_attack_speed / (1 + attack_speed_bonus)
+        new_move_speed = current_move_speed * (1 + move_speed_bonus)
+        new_ammo_size = current_ammo_size * (1 + ammo_size_bonus)
+        new_health = current_health + health_bonus
+
         def atk_speed():
-            for cnt in range(len(self.player.weapon_slots)):
-                self.player.weapon_slots[cnt].cooldown /= 1.3
+            for weapon in self.player.weapon_slots:
+                weapon.cooldown /= (1 + attack_speed_bonus)
 
         def mov_speed():
-            self.player.speed *= 1.1
+            self.player.speed *= (1 + move_speed_bonus)
 
         def ammo_size():
-            for cnt in range(len(self.player.weapon_slots)):
-                self.player.ammo_size *= 1.1
+            self.player.ammo_size *= (1 + ammo_size_bonus)
+
+        def max_health():
+            self.player.health += health_bonus
+
+        def damage():
+            for weapon in self.player.weapon_slots:
+                weapon.damage_multiplier *= (1 + damage_bonus)
+
+        def attack_range():
+            for weapon in self.player.weapon_slots:
+                weapon.attack_range *= (1 + range_bonus)
 
         rewards = {
-            'Attack\t+30%\nAttack\nSpeed': atk_speed,
-            'Movement\t+10%\nMovement\nSpeed': mov_speed,
-            'Attack\t+10%\nAmmo\nSize': ammo_size,
+            'Attack Speed': {
+                'title': 'Attack',
+                'description': f'+{attack_speed_bonus * 100:.0f}% Speed\n{current_attack_speed:.2f}s → {new_attack_speed:.2f}s',
+                'function': atk_speed
+            },
+            'Movement Speed': {
+                'title': 'Movement',
+                'description': f'+{move_speed_bonus * 100:.0f}% Speed\n{current_move_speed:.0f} → {new_move_speed:.0f}',
+                'function': mov_speed
+            },
+            'Ammo Size': {
+                'title': 'Ammo',
+                'description': f'+{ammo_size_bonus * 100:.0f}% Size\n{current_ammo_size:.1f}x → {new_ammo_size:.1f}x',
+                'function': ammo_size
+            },
+            'Max Health': {
+                'title': 'Health',
+                'description': f'+{health_bonus} Max HP\n{current_health} → {new_health}',
+                'function': max_health
+            },
+            'Damage': {
+                'title': 'Damage',
+                'description': f'+{damage_bonus * 100:.0f}% Damage\nAll weapons',
+                'function': damage
+            },
+            'Attack Range': {
+                'title': 'Range',
+                'description': f'+{range_bonus * 100:.0f}% Range\nAll weapons',
+                'function': attack_range
+            }
         }
+
         reward_name = random.choice(list(rewards.keys()))
-        self.title_text = reward_name.split('\t')[0]
-        self.reward = rewards[reward_name]
-        self.reward_description = reward_name.split('\t')[-1]
-        return reward_name.split('\t')[-1]
+        reward_data = rewards[reward_name]
+
+        self.title_text = reward_data['title']
+        self.reward = reward_data['function']
+        self.reward_description = reward_data['description']
+        return reward_data['description']
 
 
 class LevelMenu(BaseUIElement):
@@ -344,14 +423,16 @@ class LevelMenu(BaseUIElement):
             parent_location=self.location,
         )
 
-    @lru_cache(maxsize=1)
-    def determine_options(self, _: int):
+    def determine_options(self, level: int):
+        # Remove @lru_cache to generate fresh options each level
         self.layers = []
         for _ in range(self.player.level_options):
             self.layers.append(self.get_option())
 
     def update(self, *args, **kwargs):
-        self.determine_options(int(self.player.level))
+        # Only generate options if we don't have any (first time showing menu)
+        if not self.layers:
+            self.determine_options(int(self.player.level))
         super().update()
 
     def clicked(self, location: XYInt, *args, **kwargs):
@@ -414,7 +495,7 @@ class Overlay:
         self.previously_level_up = False
 
         self.pause_menu: PauseMenu = PauseMenu()
-        self.level_menu: LevelMenu = LevelMenu(self.player)
+        self.level_menu: LevelMenu | None = None
 
         self.layers: list[BaseUIElement] = []
         self.add_resources()
@@ -457,13 +538,16 @@ class Overlay:
             self.click(player_mouse.mouse_position)
 
         # If the player is choosing an option when leveling up
-        if self.player.recently_leveled_up and self.level_menu not in self.layers:
+        if self.player.recently_leveled_up and (not self.level_menu or self.level_menu not in self.layers):
+            # Create fresh menu for new level options
+            self.level_menu = LevelMenu(self.player)
             self.layers.append(self.level_menu)
             paused = True
         elif self.level_menu in self.layers and self.level_menu.choice_made:
             paused = False
             self.level_menu.choice_made = False
             self.layers.remove(self.level_menu)
+            self.level_menu = None  # Clear so fresh options are generated next time
             self.player.recently_leveled_up = False
 
         # If pause is manually toggled

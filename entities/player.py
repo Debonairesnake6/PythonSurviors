@@ -44,9 +44,14 @@ class Player(BaseSprite):
     @experience.setter
     def experience(self, value):
         self._experience = value
+        self.check_level_up()
+
+    def check_level_up(self):
         if self._experience >= self.next_level_experience:
             self.level += 1
             self._experience -= self.next_level_experience
             self.next_level_experience = int(
                 self.next_level_experience * self.level_scaling
             )
+            return True
+        return False
