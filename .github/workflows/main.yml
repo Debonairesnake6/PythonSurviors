@@ -1,3 +1,7 @@
+defaults:
+    run: 
+        shell: bash
+        working-directory: .
 on: push
 jobs:
     example-job:
