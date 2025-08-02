@@ -8,7 +8,9 @@ jobs:
       runs-on: windows-latest
       steps:
         - uses: actions/checkout@v4
-        - run: python -V
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.13' 
         - run: pip install -r requirements.txt
         - run: chmod +x ./create_exe.sh
         - run: ./create_exe.sh
