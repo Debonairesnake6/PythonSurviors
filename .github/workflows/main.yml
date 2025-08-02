@@ -14,3 +14,6 @@ jobs:
         - run: pip install -r requirements.txt
         - run: chmod +x ./create_exe.sh
         - run: ./create_exe.sh
+        - run: cp assets dist/
+        - run: mkdir dist/log
+        - run: zip -r game.zip dist
