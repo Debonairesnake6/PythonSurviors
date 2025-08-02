@@ -7,5 +7,5 @@ jobs:
     example-job:
       runs-on: ubuntu-latest
       steps:
-        - run: actions/checkout@v4
+        - uses: actions/checkout@v4
         - run: ./create_exe.sh
