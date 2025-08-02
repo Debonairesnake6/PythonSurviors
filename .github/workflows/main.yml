@@ -13,10 +13,11 @@ jobs:
             python-version: '3.13' 
         - id: install-requirements
           run: pip install -r requirements.txt
+        - run: ls -la
         - uses: actions/cache@v3
           with: 
               path: venv
-              key: ${{ runner.os }}-requirements-${{ hashFiles('**/lockfiles') }}
+              key: ${{ runner.os }}-requirements-${{ hashFiles('requirements.txt') }}
         - run: chmod +x ./create_exe.sh
         - run: ./create_exe.sh
         - run: cp -r assets dist/
