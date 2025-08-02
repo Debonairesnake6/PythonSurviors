@@ -8,6 +8,7 @@ jobs:
       runs-on: windows-latest
       steps:
         - uses: actions/checkout@v4
+        - run: python -V
         - run: pip install -r requirements.txt
         - run: chmod +x ./create_exe.sh
         - run: ./create_exe.sh
