@@ -14,7 +14,7 @@ jobs:
         - uses: actions/cache@v3
           with: 
               run: pip install -r requirements.txt
-              key: ${{ cat requirements.txt }}
+              key: ${{ runner.os }}-requirements
         - run: chmod +x ./create_exe.sh
         - run: ./create_exe.sh
         - run: cp -r assets dist/
